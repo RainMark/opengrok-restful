@@ -30,5 +30,54 @@
 
 ;;; Code:
 
+(add-to-list 'load-path "~/.emacs.d/elpa/request-20200219.2257/")
+
+(require 'json)
+(require 'request)
+
+(defconst opengrok-restful-search-url "http://127.0.0.1:8080/api/v1/search")
+(defconst opengrok-restful-buffer "*opengrok-restful*")
+
+(defmacro println (x)
+  `(message (prin1-to-string ,x)))
+
+(defun opengrok-restful-process-result (data)
+  ;; (println data)
+  ;; (setq rr (cdr r))
+  ;; (println r)
+  ;; (loop for (k . v) in r
+  ;;          (println k)
+  ;;          (println v)
+  ;;          )
+
+  (with-current-buffer (get-buffer-create opengrok-restful-buffer)
+    (setq resp (cdr (assoc 'results data)))
+    (mapcar (lambda (item)
+              ;; (println item)
+              (setq k (car item))
+              (setq v (cdr item))
+              (insert (prin1-to-string k))
+              (insert (prin1-to-string v))
+
+              ) resp)
+    )
+  )
+
+(defun opengrok-restful-lookup-symbol (sym)
+  ;; (println (type-of symbol))
+  (request opengrok-restful-search-url
+    :type "GET"
+    :params '(("projects" . "anet") ("full" . "epoll"))
+    :parser 'json-read
+    :sync t
+    :complete (cl-function (lambda (&key data &allow-other-keys)
+                             (opengrok-restful-process-result data)
+                             ))
+    ))
+
+(opengrok-restful-lookup-symbol "epoll")
+;; (with-current-buffer (get-buffer-create opengrok-restful-buffer)
+;;   (insert "ok"))
+
 
 ;;; opengrok-restful.el ends here
