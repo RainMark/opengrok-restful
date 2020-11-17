@@ -30,54 +30,53 @@
 
 ;;; Code:
 
-(add-to-list 'load-path "~/.emacs.d/elpa/request-20200219.2257/")
-
-(require 'json)
-(require 'request)
-
-(defconst opengrok-restful-search-url "http://127.0.0.1:8080/api/v1/search")
-(defconst opengrok-restful-buffer "*opengrok-restful*")
-
 (defmacro println (x)
   `(message (prin1-to-string ,x)))
 
-(defun opengrok-restful-process-result (data)
-  ;; (println data)
-  ;; (setq rr (cdr r))
-  ;; (println r)
-  ;; (loop for (k . v) in r
-  ;;          (println k)
-  ;;          (println v)
-  ;;          )
+(require 'json)
+(require 'request)
+;; (add-to-list 'load-path "~/.emacs.d/elpa/request-20200219.2257/")
 
+(defconst opengrok-restful-url "http://127.0.0.1:8080/api/v1/search")
+(defconst opengrok-restful-buffer "*opengrok-restful*")
+
+(setq opengrok-restful-highlights
+      '(("/.+:[0-9]+" . font-lock-constant-face)))
+
+(define-derived-mode opengrok-restful-mode text-mode "opengrok-restful-mode"
+  (setq font-lock-defaults '(opengrok-restful-highlights)))
+
+(defun opengrok-restful-cleanup (text)
+  (s-replace-all '(("<b>" . "") ("</b>" . "") ("&lt;" . "<") ("&gt;" . ">") ("&amp;" . "&")) text))
+
+(defun opengrok-restful-parse-response (data)
   (with-current-buffer (get-buffer-create opengrok-restful-buffer)
-    (setq resp (cdr (assoc 'results data)))
-    (mapcar (lambda (item)
-              ;; (println item)
-              (setq k (car item))
-              (setq v (cdr item))
-              (insert (prin1-to-string k))
-              (insert (prin1-to-string v))
+    (erase-buffer)
+    (opengrok-restful-mode)
+    (mapcar (lambda (file)
+              (let* ((file-name (symbol-name (car file)))
+                     (file-lines (cdr file)))
+                (mapcar (lambda (line)
+                          (let* ((line-number (cdr (assoc 'lineNumber line)))
+                                 (line-context (cdr (assoc 'line line))))
+                            (insert file-name ":" line-number ": ")
+                            (insert (opengrok-restful-cleanup line-context) "\n")))
+                        file-lines)))
+            (cdr (assoc 'results data)))))
 
-              ) resp)
-    )
-  )
-
-(defun opengrok-restful-lookup-symbol (sym)
-  ;; (println (type-of symbol))
-  (request opengrok-restful-search-url
+(defun opengrok-restful-project-lookup (project type value)
+  (request opengrok-restful-url
     :type "GET"
-    :params '(("projects" . "anet") ("full" . "epoll"))
+    :params `(("projects" . ,project) (,type . ,value))
     :parser 'json-read
     :sync t
     :complete (cl-function (lambda (&key data &allow-other-keys)
-                             (opengrok-restful-process-result data)
-                             ))
-    ))
+                             (opengrok-restful-parse-response data)))))
 
-(opengrok-restful-lookup-symbol "epoll")
-;; (with-current-buffer (get-buffer-create opengrok-restful-buffer)
-;;   (insert "ok"))
+(defun do-lookup-def ()
+  (interactive)
+  (opengrok-restful-project-lookup (read-string "Project: ") "def" (read-string "Symbol: ")))
 
+(global-set-key (kbd "M-s") 'do-lookup-def)
 
 ;;; opengrok-restful.el ends here
