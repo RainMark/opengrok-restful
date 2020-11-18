@@ -49,20 +49,42 @@
 (defun opengrok-restful-cleanup (text)
   (s-replace-all '(("<b>" . "") ("</b>" . "") ("&lt;" . "<") ("&gt;" . ">") ("&amp;" . "&")) text))
 
+(defun opengrok-restful-current-line ()
+  (buffer-substring-no-properties (line-beginning-position) (line-end-position)))
+
+(defvar opengrok-restful-keymap
+  (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "RET")
+      (lambda ()
+        (interactive "r")
+        (message "%s" (opengrok-restful-current-line))))
+    map))
+
+(put-text-property (point-min) (point-max) 'keymap opengrok-restful-keymap)
+;; (defun property-test (begin end)
+;;   (interactive "r")
+;;   (put-text-property begin end 'font-lock-face '(:foreground "red"))
+;;   (put-text-property begin end 'keymap opengrok-restful-keymap)
+;;   )
+
 (defun opengrok-restful-parse-response (data)
   (with-current-buffer (get-buffer-create opengrok-restful-buffer)
+    ;; (setq buffer-read-only nil)
     (erase-buffer)
     (opengrok-restful-mode)
     (mapcar (lambda (file)
-              (let* ((file-name (symbol-name (car file)))
-                     (file-lines (cdr file)))
+              (let ((file-name (symbol-name (car file)))
+                    (file-lines (cdr file)))
                 (mapcar (lambda (line)
-                          (let* ((line-number (cdr (assoc 'lineNumber line)))
-                                 (line-context (cdr (assoc 'line line))))
+                          (let ((line-number (cdr (assoc 'lineNumber line)))
+                                (line-content (cdr (assoc 'line line))))
                             (insert file-name ":" line-number ": ")
-                            (insert (opengrok-restful-cleanup line-context) "\n")))
+                            (insert (opengrok-restful-cleanup line-content) "\n")))
                         file-lines)))
-            (cdr (assoc 'results data)))))
+            (cdr (assoc 'results data)))
+    ;; (setq buffer-read-only t)
+    ;; (put-text-property (point-min) (point-max) 'keymap opengrok-restful-keymap)
+    ))
 
 (defun opengrok-restful-project-lookup (project type value)
   (request opengrok-restful-url
@@ -73,10 +95,29 @@
     :complete (cl-function (lambda (&key data &allow-other-keys)
                              (opengrok-restful-parse-response data)))))
 
-(defun do-lookup-def ()
-  (interactive)
-  (opengrok-restful-project-lookup (read-string "Project: ") "def" (read-string "Symbol: ")))
+(defmacro opengrok-restful-define-lookup (type)
+  (let ((fun (intern (format "opengrok-restful-lookup-%s" type))))
+    `(defun ,fun ()
+       (interactive)
+       (opengrok-restful-project-lookup (read-string "Project: ") ,(symbol-name type) (read-string "Symbol: ")))
+    ))
 
-(global-set-key (kbd "M-s") 'do-lookup-def)
+(opengrok-restful-define-lookup full)
+(opengrok-restful-define-lookup def)
+(opengrok-restful-define-lookup symbol)
+(opengrok-restful-define-lookup path)
+
+(global-set-key (kbd "M-d") 'opengrok-restful-lookup-def)
+(global-set-key (kbd "M-f") 'opengrok-restful-lookup-full)
+(global-set-key (kbd "M-s") 'opengrok-restful-lookup-symbol)
+
+
+(provide 'opengrok-restful)
+
+(message "%s" (opengrok-restful-current-line))
+(what-line)
+(println (point-min))
+(println (point-max))
+;; (println (key-binding "M-n"))
 
 ;;; opengrok-restful.el ends here
