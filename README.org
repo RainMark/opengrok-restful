@@ -1,3 +1,12 @@
 ** opengrok-restful.el
+   
+   #+begin_src elisp
+    (global-set-key (kbd "M-d") 'opengrok-restful-lookup-def)
+    (global-set-key (kbd "M-f") 'opengrok-restful-lookup-full)
+    (global-set-key (kbd "M-s") 'opengrok-restful-lookup-symbol)
+    (global-set-key (kbd "M-p") 'opengrok-restful-lookup-path)
+   #+end_src
 
-[[./opengrok-restful.png]]
+   [[./opengrok-restful.gif]]
+
+   [[./opengrok-restful.png]]
