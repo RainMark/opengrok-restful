@@ -90,7 +90,6 @@
                           (let ((line-number (cdr (assoc 'lineNumber line)))
                                 (line-content (cdr (assoc 'line line))))
                             (when (string= "" line-number) (setq line-number "1"))
-                            (println line-number)
                             (insert file-name ":" line-number ": ")
                             (insert (opengrok-restful-cleanup line-content) "\n")))
                         file-lines)))
