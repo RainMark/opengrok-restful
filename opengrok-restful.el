@@ -1,4 +1,4 @@
-;;; opengrok-restful.el --- Emacs Source Code Search With OpenGrok RESTful API -*- lexical-binding: t; -*-
+;;; opengrok-restful.el --- OpenGrok RESTful interface for Emacs -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2020 RainMark
 
