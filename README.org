@@ -1,7 +1,7 @@
 ** opengrok-restful.el
-   
+
 *** Setup opengrok
-    
+
     - Start opengrok server and limit the cpu usage of opengrok indexer.
     - Period of automatic mirroring/reindexing (10min).
     - The volume mounted to ~/Projects should contain the projects you want to make searchable.
@@ -29,8 +29,18 @@
     #+end_src
 
 *** Setup opengrok-restful
-   
+
+    #+begin_src shell
+    $ git clone https://github.com/RainMark/opengrok-restful.el.git ~/opengrok-restful
+    #+end_src
+
+    - Emacs config.
+
     #+begin_src elisp
+    ;; opengrok-restful
+    (add-to-list 'load-path "~/opengrok-restful")
+    (require 'opengrok-restful)
+    (setq opengrok-restful-source-directory "~/Projects")
     (global-set-key (kbd "M-d") 'opengrok-restful-lookup-def)
     (global-set-key (kbd "M-f") 'opengrok-restful-lookup-full)
     (global-set-key (kbd "M-s") 'opengrok-restful-lookup-symbol)
@@ -40,5 +50,3 @@
     [[./opengrok-restful.gif]]
 
     [[./opengrok-restful.png]]
-
-   

@@ -30,16 +30,15 @@
 
 ;;; Code:
 
-(defmacro println (x)
-  `(message (prin1-to-string ,x)))
+;; (defmacro println (x)
+;;   `(message (prin1-to-string ,x)))
 
 (require 'json)
 (require 'request)
-;; (add-to-list 'load-path "~/.emacs.d/elpa/request-20200219.2257/")
 
-(defconst opengrok-restful-url "http://127.0.0.1:8080/api/v1/search")
-(defconst opengrok-restful-buffer "*opengrok-restful*")
-(defconst opengrok-restful-source-directory "~/opengrok-src")
+(setq opengrok-restful-source-directory "")
+(setq opengrok-restful-buffer "*opengrok-restful*")
+(setq opengrok-restful-url "http://127.0.0.1:8080/api/v1/search")
 
 (setq opengrok-restful-highlights
       '(("/.+:[0-9]+" . font-lock-constant-face)))
@@ -75,7 +74,7 @@
         (define-key map (kbd "<escape>")
           (lambda ()
             (interactive)
-            (kill-current-buffer)))
+            (kill-buffer (current-buffer))))
         map))
 
 (defun opengrok-restful-parse-response (data)
@@ -105,29 +104,29 @@
 
 (defun opengrok-restful-project-lookup (project type value)
   (request opengrok-restful-url
-    :type "GET"
-    :params `(("projects" . ,project) (,type . ,value))
-    :parser 'json-read
-    :sync t
-    :complete (cl-function (lambda (&key data &allow-other-keys)
-                             (opengrok-restful-parse-response data)))))
+           :type "GET"
+           :params `(("projects" . ,project) (,type . ,value))
+           :parser 'json-read
+           :sync t
+           :complete (cl-function (lambda (&key data &allow-other-keys)
+                                    (opengrok-restful-parse-response data)))))
 
 (defmacro opengrok-restful-define-lookup (type)
   (let ((fun (intern (format "opengrok-restful-lookup-%s" type))))
     `(defun ,fun ()
        (interactive)
-       (opengrok-restful-project-lookup (read-string "Project: ") ,(symbol-name type) (read-string "Symbol: ")))
+       (let ((default-project (file-name-nondirectory (directory-file-name (projectile-project-root))))
+             (default-symbol (thing-at-point 'symbol)))
+         (opengrok-restful-project-lookup
+          (read-string (format "Project (%s): " default-project) nil nil default-project)
+          ,(symbol-name type)
+          (read-string (format "Symbol (%s): " default-symbol) nil nil default-symbol))))
     ))
 
 (opengrok-restful-define-lookup full)
 (opengrok-restful-define-lookup def)
 (opengrok-restful-define-lookup symbol)
 (opengrok-restful-define-lookup path)
-
-(global-set-key (kbd "M-d") 'opengrok-restful-lookup-def)
-(global-set-key (kbd "M-f") 'opengrok-restful-lookup-full)
-(global-set-key (kbd "M-s") 'opengrok-restful-lookup-symbol)
-(global-set-key (kbd "M-p") 'opengrok-restful-lookup-path)
 
 (provide 'opengrok-restful)
 
