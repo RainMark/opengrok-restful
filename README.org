@@ -1,12 +1,44 @@
 ** opengrok-restful.el
    
-   #+begin_src elisp
+*** Setup opengrok
+    
+    - Start opengrok server and limit the cpu usage of opengrok indexer.
+    - Period of automatic mirroring/reindexing (10min).
+    - The volume mounted to ~/Projects should contain the projects you want to make searchable.
+    - Open http://127.0.0.1:8080 to enjoy.
+
+    #+begin_src shell
+    $ sudo docker run -d --cpus="1.0" \
+        --name opengrok \
+        -p 8080:8080/tcp \
+        -e REINDEX="10" \
+        -v ~/Projects:/opengrok/src/ \
+        opengrok/docker:latest
+    #+end_src
+
+    - You can avoid to sync source code from upstream.
+
+    #+begin_src shell
+    $ sudo docker exec -it opengrok sed -i 's/opengrok-mirror/#opengrok-mirror/g' /scripts/index.sh
+    #+end_src
+
+    - You can manually trigger an reindex using docker exec.
+
+    #+begin_src shell
+    $ sudo docker exec -it opengrok /scripts/index.sh
+    #+end_src
+
+*** Setup opengrok-restful
+   
+    #+begin_src elisp
     (global-set-key (kbd "M-d") 'opengrok-restful-lookup-def)
     (global-set-key (kbd "M-f") 'opengrok-restful-lookup-full)
     (global-set-key (kbd "M-s") 'opengrok-restful-lookup-symbol)
     (global-set-key (kbd "M-p") 'opengrok-restful-lookup-path)
-   #+end_src
+    #+end_src
 
-   [[./opengrok-restful.gif]]
+    [[./opengrok-restful.gif]]
 
-   [[./opengrok-restful.png]]
+    [[./opengrok-restful.png]]
+
+   
