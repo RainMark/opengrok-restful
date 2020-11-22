@@ -1,4 +1,4 @@
-** opengrok-restful.el
+** opengrok-restful
 
 *** Setup opengrok
 
@@ -31,7 +31,7 @@
 *** Setup opengrok-restful
 
     #+begin_src shell
-    $ git clone https://github.com/RainMark/opengrok-restful.el.git ~/opengrok-restful
+    $ git clone https://github.com/RainMark/opengrok-restful.git ~/opengrok-restful
     #+end_src
 
     - Emacs config.
