@@ -5,7 +5,7 @@
 ;; Author: RainMark <rain.by.zhou at gmail.com>
 ;; URL: https://github.com/RainMark/opengrok-restful.el
 ;; Package-Requires: ((emacs "24.4"))
-;; Version: 0.0.1
+;; Version: 0.0.2
 
 ;; This file is NOT part of GNU Emacs.
 
@@ -95,33 +95,45 @@
             (cdr (assoc 'results data)))
     (put-text-property (point-min) (point-max) 'keymap opengrok-restful-keymap)
     (setq buffer-read-only t)
-    (if (< 0 (buffer-size))
-        (progn
-          (switch-to-buffer-other-window opengrok-restful-buffer)
-          (goto-char (point-min)))
-      (message "Nothing found."))
+    (when (< 0 (buffer-size))
+      (progn
+        (switch-to-buffer-other-window opengrok-restful-buffer)
+        (goto-char (point-min))))
     ))
 
-(defun opengrok-restful-project-lookup (project type value)
+(defun opengrok-restful-project-lookup (request-params)
   (request opengrok-restful-url
-           :type "GET"
-           :params `(("projects" . ,project) (,type . ,value))
-           :parser 'json-read
-           :sync t
-           :complete (cl-function (lambda (&key data &allow-other-keys)
-                                    (opengrok-restful-parse-response data)))))
+    :type "GET"
+    :params request-params
+    :parser 'json-read
+    :sync t
+    :complete (cl-function (lambda (&key data &allow-other-keys)
+                             (opengrok-restful-parse-response data)))))
+
+(defun opengrok-restful-current-project-name ()
+  (file-name-nondirectory (directory-file-name (projectile-project-root))))
+
+(defun opengrok-restful-make-params (project type value)
+  (let ((params `((,type ,value))))
+    (if (not (string= "" project))
+        (cons `("projects" . ,(if (string= "c" project)
+                                  (opengrok-restful-current-project-name)
+                                project))
+              params)
+      params)))
 
 (defmacro opengrok-restful-define-lookup (type)
   (let ((fun (intern (format "opengrok-restful-lookup-%s" type))))
     `(defun ,fun ()
        (interactive)
-       (let ((default-project (file-name-nondirectory (directory-file-name (projectile-project-root))))
+       (let ((default-project )
              (default-symbol (thing-at-point 'symbol)))
          (opengrok-restful-project-lookup
-          (read-string (format "Project (%s): " default-project) nil nil default-project)
-          ,(symbol-name type)
-          (read-string (format "Symbol (%s): " default-symbol) nil nil default-symbol))))
-    ))
+          (opengrok-restful-make-params
+           (read-string "Project> ")
+           ,(symbol-name type)
+           (read-string (format "Symbol (%s)> " default-symbol) nil nil default-symbol)))
+         ))))
 
 (opengrok-restful-define-lookup full)
 (opengrok-restful-define-lookup def)

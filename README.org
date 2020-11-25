@@ -47,6 +47,8 @@
     (global-set-key (kbd "M-p") 'opengrok-restful-lookup-path)
     #+end_src
 
+    - When you lookup symbol with opengrok-restful, Input nothing to lookup all projects that indexed, Input 'c' to lookup current project.
+
     [[./opengrok-restful.gif]]
 
     [[./opengrok-restful.png]]
