@@ -13,7 +13,7 @@
         -p 8080:8080/tcp \
         -e REINDEX="10" \
         -v ~/Projects:/opengrok/src/ \
-        opengrok/docker:latest
+        opengrok/docker:1.3
     #+end_src
 
     - You can avoid to sync source code from upstream.
