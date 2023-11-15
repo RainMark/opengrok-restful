@@ -35,6 +35,7 @@
 
 (require 'json)
 (require 'request)
+(require 's)
 
 (setq opengrok-restful-source-directory "")
 (setq opengrok-restful-buffer "*opengrok-restful*")
