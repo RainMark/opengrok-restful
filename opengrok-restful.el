@@ -39,6 +39,7 @@
 (setq opengrok-restful-source-directory "")
 (setq opengrok-restful-buffer "*opengrok-restful*")
 (setq opengrok-restful-url "http://127.0.0.1:8080/api/v1/search")
+(setq opengrok-restful-token "")
 
 (setq opengrok-restful-highlights
       '(("/.+:[0-9]+" . font-lock-constant-face)))
@@ -105,6 +106,7 @@
   (request opengrok-restful-url
     :type "GET"
     :params request-params
+    :headers (list (cons "Authorization" (format "Bearer %s" opengrok-restful-token)))
     :parser 'json-read
     :sync t
     :complete (cl-function (lambda (&key data &allow-other-keys)
