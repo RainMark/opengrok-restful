@@ -54,18 +54,39 @@
 (defun opengrok-restful-current-line ()
   (buffer-substring-no-properties (line-beginning-position) (line-end-position)))
 
+(defun opengrok-restful-get-file-content (path)
+  (let ((content nil)
+        (download-url (format "%s/raw%s"
+                              (s-replace "/api/v1/search" "" opengrok-restful-url)
+                              path)))
+    (request download-url
+             :type "GET"
+             :headers (list (cons "Authorization" (format "Bearer %s" opengrok-restful-token)))
+             :parser 'buffer-string
+             :sync t
+             :complete (cl-function (lambda (&key data &allow-other-keys)
+                                      (setq content data))))
+    content))
+
 (defun opengrok-restful-jump-to-target (line-content)
   (cl-multiple-value-bind (path linum)
       (save-match-data
         (string-match "/.+:[0-9]+" line-content)
         (split-string (match-string 0 line-content) ":"))
-    (find-file (concat
-                (file-name-as-directory opengrok-restful-source-directory)
-                (substring path 1)))
-    (goto-char (point-min))
-    (forward-line (1- (string-to-number linum)))
-    (kill-buffer opengrok-restful-buffer)
-    ))
+    (let ((content (opengrok-restful-get-file-content path)))
+      (when content
+        (let* ((full-path (concat (file-name-as-directory opengrok-restful-source-directory)
+                                  (substring path 1)))
+               (buffer (generate-new-buffer (file-name-nondirectory full-path))))
+          (switch-to-buffer-other-window buffer)
+          (with-current-buffer buffer
+            (erase-buffer)
+            (insert content)
+            (setq buffer-file-name full-path)
+            (set-auto-mode)
+            (goto-char (point-min))
+            (forward-line (1- (string-to-number linum))))
+          )))))
 
 (setq opengrok-restful-keymap
       (let ((map (make-sparse-keymap)))
@@ -79,45 +100,65 @@
             (kill-buffer (current-buffer))))
         map))
 
-(defun opengrok-restful-parse-response (data)
+(defun opengrok-restful-parse-response (data project value)
   (with-current-buffer (get-buffer-create opengrok-restful-buffer)
     (setq buffer-read-only nil)
-    (erase-buffer)
-    (opengrok-restful-mode)
-    (mapcar (lambda (file)
-              (let ((file-name (symbol-name (car file)))
-                    (file-lines (cdr file)))
-                (mapcar (lambda (line)
-                          (let ((line-number (cdr (assoc 'lineNumber line)))
-                                (line-content (cdr (assoc 'line line))))
-                            (when (string= "" line-number) (setq line-number "1"))
-                            (insert file-name ":" line-number ": ")
-                            (insert (opengrok-restful-cleanup line-content) "\n")))
+    (goto-char (point-max))
+    (if (> (point) (point-min))
+        (insert "\n\n"))
+    (let ((start-of-new-results (point)))
+      (insert "--- New Search Results ---\n")
+      (insert (format "Project: %s\n" (or project "all")))
+      (insert (format "Search: %s\n\n" value))
+      (opengrok-restful-mode)
+
+
+      (mapcar (lambda (file)
+                (let ((file-name (symbol-name (car file)))
+                      (file-lines (cdr file)))
+                  (mapcar (lambda (line)
+                            (let ((line-number (cdr (assoc 'lineNumber line)))
+                                  (line-content (cdr (assoc 'line line))))
+                              (when (string= "" line-number) (setq line-number "1"))
+                              (insert file-name ":" line-number ": ")
+                              (insert (opengrok-restful-cleanup line-content) "\n")))
                         file-lines)))
-            (cdr (assoc 'results data)))
-    (put-text-property (point-min) (point-max) 'keymap opengrok-restful-keymap)
-    (setq buffer-read-only t)
-    (when (< 0 (buffer-size))
-      (progn
-        (switch-to-buffer-other-window opengrok-restful-buffer)
-        (goto-char (point-min))))
-    ))
+              (cdr (assoc 'results data)))
+      (put-text-property (point-min) (point-max) 'keymap opengrok-restful-keymap)
+      (setq buffer-read-only t)
+      (when (< 0 (buffer-size))
+        (progn
+          (switch-to-buffer-other-window opengrok-restful-buffer)
+          (goto-char start-of-new-results))))))
 
 (defun opengrok-restful-project-lookup (request-params)
-  (request opengrok-restful-url
-    :type "GET"
-    :params request-params
-    :headers (list (cons "Authorization" (format "Bearer %s" opengrok-restful-token)))
-    :parser 'json-read
-    :sync t
-    :complete (cl-function (lambda (&key data &allow-other-keys)
-                             (opengrok-restful-parse-response data)))))
+  (let* ((project (cdr (assoc "projects" request-params)))
+         (search-pair (car (remove (assoc "projects" request-params) request-params)))
+         (value (cdr search-pair)))
+    (request opengrok-restful-url
+      :type "GET"
+      :params request-params
+      :headers (list (cons "Authorization" (format "Bearer %s" opengrok-restful-token)))
+      :parser 'json-read
+      :sync t
+      :complete (cl-function (lambda (&key data &allow-other-keys)
+                               (opengrok-restful-parse-response data project value))))))
+
+(defvar opengrok-restful-current-project nil
+  "The current project name to use for OpenGrok searches.")
+
+(defun opengrok-restful-set-current-project (project-name)
+  "Set the current OpenGrok project name."
+  (interactive "sProject name: ")
+  (setq opengrok-restful-current-project project-name)
+  (message "OpenGrok project set to: %s" project-name))
 
 (defun opengrok-restful-current-project-name ()
-  (file-name-nondirectory (directory-file-name (projectile-project-root))))
+  "Return the current OpenGrok project name."
+  opengrok-restful-current-project)
 
 (defun opengrok-restful-make-params (project type value)
-  (let ((params `((,type ,value))))
+  (let ((params `((,type . ,value))))
     (if (not (string= "" project))
         (cons `("projects" . ,(if (string= "c" project)
                                   (opengrok-restful-current-project-name)
@@ -135,8 +176,7 @@
           (opengrok-restful-make-params
            (read-string "Project> ")
            ,(symbol-name type)
-           (read-string (format "Symbol (%s)> " default-symbol) nil nil default-symbol)))
-         ))))
+           (read-string (format "Symbol (%s)> " default-symbol) nil nil default-symbol)))))))
 
 (opengrok-restful-define-lookup full)
 (opengrok-restful-define-lookup def)
